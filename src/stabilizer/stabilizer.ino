@@ -37,43 +37,22 @@ void GyroInterrupt (void) {
   Serial.println(anglePosY);
 #endif
 
-  static int   posX       = 0;
-  
-  //posX                        += accelX / (DEFAULT_GYRO_RATE * DEFAULT_GYRO_RATE) / 2;
-
-  int        servoPosToWrite    = ComputeServoPID (anglePosY, initialAnglePosY); 
+  int servoPosToWrite = ComputeServoPID (anglePosY, initialAnglePosY); 
 
 #ifdef DEBUG_STAB
   Serial.print("servoPosToWrite:");
   Serial.println(servoPosToWrite);
 #endif
 
-//  static int servoCounter;
-//  if (servoCounter < 1000)
-//    servoCounter++;
-  SERVO.write (servoPosToWrite * 100);
+  SERVO.write (map(servoPosToWrite, -100, 100, 0, 180));
 
-//int   stepperPosToWrite = ComputePID ()
+  int stepperPosToWrite = ComputeStepperPID (anglePosY, initialAnglePosY); 
+
+  stepper.moveTo(stepperPosToWrite);
 
   interrupts();
 }
 
-void PlotAnglePosY (float anglePosY, int currTime) {
-
-
-}
-/*
-void PlotPosX (float posX, int currTime) {
-
-  Serial.print("x:");
-  Serial.print(posX);
-
-  Serial.print(",");
-
-  Serial.print("time:");
-  Serial.println(currTime);
-}
-*/
 int ComputeServoPID (float input, float setpoint) {
  
   float        err      = setpoint - input;
@@ -88,20 +67,18 @@ int ComputeServoPID (float input, float setpoint) {
   return constrain (err * SERVO_KP + integral + D * SERVO_KD, -1000, 1000);
 }
 
-int ComputePID (float input, float setpoint, 
-                float kp, float ki, float kd,
-                float dt, int minOut, int maxOut) {
+int ComputeStepperPID (float input, float setpoint) {
  
   float        err      = setpoint - input;
   static float integral = 0;
   static float prevErr  = 0;
   
-  integral = constrain (integral + (float)err * dt * ki, minOut, maxOut);
+  integral = constrain (integral + (float)err * STEPPER_KI / DEFAULT_GYRO_RATE_IN_HZ, -1000, 1000);
  
-  float D = (err - prevErr) / dt;
+  float D = (err - prevErr) * DEFAULT_GYRO_RATE_IN_HZ;
   prevErr = err;
  
-  return constrain (err * kp + integral + D * kd, minOut, maxOut);
+  return constrain (err * STEPPER_KP + integral + D * STEPPER_KD, -1000, 1000);
 }
 
 float ExpRunningAverageAdaptive (float newVal) {
@@ -146,11 +123,9 @@ void setup() {
   SERVO.attach (SERVO_PIN);  // Connect D6 of Arduino with PWM signal pin of SERVO motor
 
   SetInitialGyroOffset();
-//  SetInitialStepperOffset();
+  SetInitialStepperOffset();
 
   attachInterrupt (1, GyroInterrupt, CHANGE);
-
-  //BMI160.attachInterrupt (GyroInterrupt);
 }
 
 void loop() {

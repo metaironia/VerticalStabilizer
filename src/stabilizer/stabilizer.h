@@ -21,8 +21,12 @@ const int   DEFAULT_GYRO_RANGE = BMI160_GYRO_RANGE_125;
 const float BANANI_V_DEGREE    = 262.4; 
 
 const float SERVO_KP = 1;
-const float SERVO_KI = 0;
+const float SERVO_KI = 50;
 const float SERVO_KD = 0;
+
+const float STEPPER_KP = 1;
+const float STEPPER_KI= 30;
+const float STEPPER_KD = 0;
 
 void GyroInterrupt (void);
 
