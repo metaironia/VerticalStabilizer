@@ -12,11 +12,17 @@ const int   MOTOR_INTERFACE_TYPE = 1;
 const int   SERVO_PIN = 7; // A descriptive name for D6 pin of Arduino to provide PWM signal
 
 const int   GYRO_SELECT_PIN = 4;
-const int   DEFAULT_GYRO_RATE = BMI160_GYRO_RATE_400HZ;
+const int   DEFAULT_GYRO_RATE  = BMI160_GYRO_RATE_400HZ;
+const int   DEFAULT_ACCEL_RATE = BMI160_ACCEL_RATE_400HZ;
+
+const int   DEFAULT_GYRO_RATE_IN_HZ = 400;   
+
+const int   DEFAULT_GYRO_RANGE = BMI160_GYRO_RANGE_125;
+const float BANANI_V_DEGREE    = 262.4; 
 
 const float SERVO_KP = 1;
-const float SERVO_KI = 1;
-const float SERVO_KD = 1;
+const float SERVO_KI = 0;
+const float SERVO_KD = 0;
 
 void GyroInterrupt (void);
 

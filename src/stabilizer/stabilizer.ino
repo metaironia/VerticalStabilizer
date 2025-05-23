@@ -10,46 +10,59 @@ Servo SERVO;
 int initialAnglePosY = 0; 
 int initialStepperPos = 0;
 
+volatile float anglePosY = 0;
+
 void GyroInterrupt (void) {
 
   noInterrupts();
 
-  static unsigned long prevTimeCalled = 0;
+  int   rawAngleVelocityY       = BMI160.getRotationY();
+  float filteredAngleVelocityY  = ExpRunningAverageAdaptive (rawAngleVelocityY);
+  float trueAngleVelocityY      = filteredAngleVelocityY / BANANI_V_DEGREE;
 
-  int   anglePosY         = BMI160.getRotationY();
-  float filteredAnglePosY = ExpRunningAverageAdaptive (anglePosY);
- 
-  static int posX         = 0;
-  int        accelX       = BMI160.getXAccelOffset();
-  
-  posX += accelX / (DEFAULT_GYRO_RATE * DEFAULT_GYRO_RATE) / 2;
-
-  int   servoPosToWrite   = ComputePID (filteredAnglePosY, initialAnglePosY,
-                                        SERVO_KP, SERVO_KI, SERVO_KD,
-                                        1 / DEFAULT_GYRO_RATE, -1000, 1000); 
-
-//  SERVO.write (servoPosToWrite);
+  anglePosY += (trueAngleVelocityY / DEFAULT_GYRO_RATE_IN_HZ) * 2; // don't ask me why 2 is here...
 
 #ifdef DEBUG_STAB
-  PlotAnglePosY(anglePosY, millis());
-  //PlotPosX(posX, millis());
+  Serial.print("angleVelocityY:");
+  Serial.print(trueAngleVelocityY);
+
+  Serial.print(",");
+
+  Serial.print("filteredAngleVelocityY:");
+  Serial.print(filteredAngleVelocityY);
+
+  Serial.print(",");
+
+  Serial.print("anglePosY:");
+  Serial.println(anglePosY);
 #endif
-  //int   stepperPosToWrite = ComputePID ()
+
+  static int   posX       = 0;
+  
+  //posX                        += accelX / (DEFAULT_GYRO_RATE * DEFAULT_GYRO_RATE) / 2;
+
+  int        servoPosToWrite    = ComputeServoPID (anglePosY, initialAnglePosY); 
+
+#ifdef DEBUG_STAB
+  Serial.print("servoPosToWrite:");
+  Serial.println(servoPosToWrite);
+#endif
+
+//  static int servoCounter;
+//  if (servoCounter < 1000)
+//    servoCounter++;
+  SERVO.write (servoPosToWrite * 100);
+
+//int   stepperPosToWrite = ComputePID ()
 
   interrupts();
 }
 
 void PlotAnglePosY (float anglePosY, int currTime) {
 
-  Serial.print("angle:");
-  Serial.print(anglePosY);
 
-  Serial.print(",");
-
-  Serial.print("time:");
-  Serial.println(currTime);
 }
-
+/*
 void PlotPosX (float posX, int currTime) {
 
   Serial.print("x:");
@@ -59,6 +72,20 @@ void PlotPosX (float posX, int currTime) {
 
   Serial.print("time:");
   Serial.println(currTime);
+}
+*/
+int ComputeServoPID (float input, float setpoint) {
+ 
+  float        err      = setpoint - input;
+  static float integral = 0;
+  static float prevErr  = 0;
+  
+  integral = constrain (integral + (float)err * SERVO_KI / DEFAULT_GYRO_RATE_IN_HZ, -1000, 1000);
+ 
+  float D = (err - prevErr) * DEFAULT_GYRO_RATE_IN_HZ;
+  prevErr = err;
+ 
+  return constrain (err * SERVO_KP + integral + D * SERVO_KD, -1000, 1000);
 }
 
 int ComputePID (float input, float setpoint, 
@@ -91,6 +118,8 @@ float ExpRunningAverageAdaptive (float newVal) {
 
 void SetInitialGyroOffset() {
 
+  BMI160.autoCalibrateGyroOffset();
+
   initialAnglePosY = 0;
 }
 
@@ -112,8 +141,9 @@ void setup() {
   // initialize device
   BMI160.begin (BMI160GenClass::SPI_MODE, GYRO_SELECT_PIN);
   BMI160.setGyroRate (DEFAULT_GYRO_RATE);
-
-//  SERVO.attach (SERVO_PIN);  // Connect D6 of Arduino with PWM signal pin of SERVO motor
+  BMI160.setAccelRate (DEFAULT_ACCEL_RATE);
+  BMI160.setFullScaleGyroRange (DEFAULT_GYRO_RANGE);
+  SERVO.attach (SERVO_PIN);  // Connect D6 of Arduino with PWM signal pin of SERVO motor
 
   SetInitialGyroOffset();
 //  SetInitialStepperOffset();
